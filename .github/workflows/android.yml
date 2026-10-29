@@ -36,18 +36,45 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
+            - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
       - name: Build APK
         run: |
-          cd project
-          GRADLE_FILE=$(find . -name gradlew -type f | head -n 1)
-          if [ -n "$GRADLE_FILE" ]; then
-            cd "$(dirname "$GRADLE_FILE")"
-            chmod +x gradlew
-            ./gradlew assembleDebug
-          else
-            echo "压缩包中没有 Gradle Wrapper（gradlew），无法自动编译"
+          echo "检查 Android 工程文件..."
+          find project -type f \( \
+            -name 'settings.gradle' -o \
+            -name 'settings.gradle.kts' -o \
+            -name 'build.gradle' -o \
+            -name 'build.gradle.kts' \
+          \)
+
+          GRADLE_FILE=$(find project -type f \( \
+            -name 'settings.gradle' -o \
+            -name 'settings.gradle.kts' \
+          \) | head -n 1)
+
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "没有找到 settings.gradle，继续检查 build.gradle"
+            GRADLE_FILE=$(find project -type f \( \
+              -name 'build.gradle' -o \
+              -name 'build.gradle.kts' \
+            \) | head -n 1)
+          fi
+
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "错误：压缩包里没有找到 Gradle 工程配置文件"
             exit 1
           fi
+
+          cd "$(dirname "$GRADLE_FILE")"
+          gradle assembleDebug
+
+          echo "查找生成的 APK..."
+          find . -type f -name '*.apk'
+        
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
