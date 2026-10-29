@@ -1,0 +1,57 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '智能彩票号码分析器_V5_手机云端编译版.zip'
+      - '.github/workflows/android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract project ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 2 -name '智能彩票号码分析器_V5_手机云端编译版.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "没有找到 V5 ZIP 文件"
+            find . -maxdepth 3 -type f
+            exit 1
+          fi
+          mkdir project
+          unzip -q "$ZIP_FILE" -d project
+          echo "解压后的文件："
+          find project -maxdepth 4 -type f | head -n 100
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          cd project
+          GRADLE_FILE=$(find . -name gradlew -type f | head -n 1)
+          if [ -n "$GRADLE_FILE" ]; then
+            cd "$(dirname "$GRADLE_FILE")"
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            echo "压缩包中没有 Gradle Wrapper（gradlew），无法自动编译"
+            exit 1
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lottery-analyzer-apk
+          path: project/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
